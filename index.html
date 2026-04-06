@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CACHORROS YABAT</title>
+    
+    <!-- Diseño y Iconos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <!-- Firebase 8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- Librerías para PDF y Gráficas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc;
+            margin: 0; padding: 0;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: white;
+            border-top: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 2px calc(10px + env(safe-area-inset-bottom));
+            z-index: 1000;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.03);
+        }
+
+        .nav-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #94a3b8;
+            font-size: 7px;
+            font-weight: 900;
+            text-transform: uppercase;
+            gap: 4px;
+        }
+
+        .nav-btn.active { color: #059669; }
+
+        .header {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            z-index: 500;
+        }
+
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #059669;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+        .card { background: white; border-radius: 24px; padding: 20px; border: 1px solid #f1f5f9; margin-bottom: 16px; }
+        
+        input, select, textarea { font-size: 16px !important; }
+
+        .balance-card-green {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        }
+
+        #modal-container {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 32px 32px 0 0;
+            padding: 32px 24px 48px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .status-pill { padding: 4px 8px; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+        .status-disponible { background: #ecfdf5; color: #059669; }
+        .status-vendido { background: #fef2f2; color: #dc2626; }
+        .status-reservado { background: #fffbeb; color: #d97706; }
+        .status-fallecido { background: #f1f5f9; color: #64748b; }
+
+        .form-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            margin-left: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-export-main {
+            background: #0f172a;
+            color: white;
+            width: 100%;
+            padding: 16px;
+            border-radius: 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .filter-chip {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            white-space: nowrap;
+            background: white;
+            border: 1px solid #f1f5f9;
+            color: #94a3b8;
+            transition: all 0.2s;
+        }
+        .filter-chip.active {
+            background: #059669;
+            color: white;
+            border-color: #059669;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <h2 class="mt-4 font-black text-xl uppercase tracking-tighter">
+            <span class="text-black">CACHORROS</span> <span class="text-emerald-600">YABAT</span>
+        </h2>
+    </div>
+
+    <div id="modal-container" class="hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="text-xl font-black uppercase">Formulario</h3>
+                <button onclick="closeModal()" class="text-slate-400 p-2"><i data-lucide="x"></i></button>
+            </div>
+            <div id="modal-form-body" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <header class="header">
+        <div class="bg-emerald-600 p-2.5 rounded-2xl text-white shadow-lg">
+            <i data-lucide="dog" class="w-6 h-6"></i>
+        </div>
+        <h1 class="text-2xl font-black uppercase tracking-tight leading-none">
+            <span class="text-black">CACHORROS</span> <span class="text-emerald-600">YABAT</span>
+        </h1>
+    </header>
+
+    <main id="app-view" class="p-5 pb-32">
+        <!-- Contenido dinámico -->
+    </main>
+
+    <nav class="bottom-nav">
+        <div onclick="navigate('inicio')" class="nav-btn active" id="nav-inicio">
+            <i data-lucide="home" class="w-5 h-5"></i><span>Inicio</span>
+        </div>
+        <div onclick="navigate('camadas')" class="nav-btn" id="nav-camadas">
+            <i data-lucide="archive" class="w-5 h-5"></i><span>Camadas</span>
+        </div>
+        <div onclick="navigate('stock')" class="nav-btn" id="nav-stock">
+            <i data-lucide="package" class="w-5 h-5"></i><span>Stock</span>
+        </div>
+        <div onclick="navigate('celos')" class="nav-btn" id="nav-celos">
+            <i data-lucide="calendar-heart" class="w-5 h-5"></i><span>Celos</span>
+        </div>
+        <div onclick="navigate('salud')" class="nav-btn" id="nav-salud">
+            <i data-lucide="stethoscope" class="w-5 h-5"></i><span>Salud</span>
+        </div>
+        <div onclick="navigate('ingresos')" class="nav-btn" id="nav-ingresos">
+            <i data-lucide="trending-up" class="w-5 h-5"></i><span>Ingresos</span>
+        </div>
+        <div onclick="navigate('gastos')" class="nav-btn" id="nav-gastos">
+            <i data-lucide="trending-down" class="w-5 h-5"></i><span>Gastos</span>
+        </div>
+    </nav>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyD-h2vSx-ULiPM0Pt89taIt_FrDCBnYfV8",
+            authDomain: "cachorros-yabat-dbf04.firebaseapp.com",
+            projectId: "cachorros-yabat-dbf04",
+            storageBucket: "cachorros-yabat-dbf04.firebasestorage.app",
+            messagingSenderId: "850101237381",
+            appId: "1:850101237381:web:6d4dde8b76b1ac3ac59bec"
+        };
+
+        var appId = "cachorros-yabat-v1";
+        firebase.initializeApp(firebaseConfig);
+        var auth = firebase.auth();
+        var db = firebase.firestore();
+
+        var state = {
+            view: 'inicio',
+            hembras: [],
+            transacciones: [],
+            camadas: [],
+            cachorros: [],
+            perrosSalud: [],
+            currentCamadaId: null,
+            currentPerroId: null,
+            filterMonth: new Date().getMonth().toString(),
+            filterYear: new Date().getFullYear().toString(),
+            stockFilter: 'TODOS',
+            stockTimeMode: 'GLOBAL'
+        };
+
+        var monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        var annualChart = null;
+        var puppyChart = null;
+
+        function openModal(title, contentHtml) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-form-body').innerHTML = contentHtml;
+            document.getElementById('modal-container').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        function navigate(v, id = null) {
+            state.view = v;
+            if (v === 'salud-detalle') state.currentPerroId = id;
+            if (v === 'camada-detalle') state.currentCamadaId = id;
+            
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(document.getElementById('nav-' + v)) document.getElementById('nav-' + v).classList.add('active');
+            render();
+        }
+
+        function updateFilter(type, value) {
+            state[type] = value;
+            render();
+        }
+
+        function render() {
+            var container = document.getElementById('app-view');
+
+            // --- SELECTORES DE TIEMPO ---
+            var yearsHtml = "";
+            for(var y=2024; y<=2030; y++) yearsHtml += `<option value="${y}" ${state.filterYear == y ? 'selected' : ''}>${y}</option>`;
+            var timeSelectorsHtml = `
+                <div class="flex gap-2 mb-6">
+                    <select onchange="updateFilter('filterMonth', this.value)" class="flex-1 bg-white border border-slate-200 p-3 rounded-xl font-bold text-sm outline-none shadow-sm">
+                        <option value="ALL" ${state.filterMonth === 'ALL' ? 'selected' : ''}>TODO EL AÑO</option>
+                        ${monthNames.map((m, i) => `<option value="${i}" ${state.filterMonth == i ? 'selected' : ''}>${m}</option>`).join('')}
+                    </select>
+                    <select onchange="updateFilter('filterYear', this.value)" class="flex-1 bg-white border border-slate-200 p-3 rounded-xl font-bold text-sm outline-none shadow-sm">
+                        ${yearsHtml}
+                    </select>
+                </div>
+            `;
+
+            if (state.view === 'inicio') {
+                var mIng = 0, mGas = 0, aIng = 0, aGas = 0, gIng = 0, gGas = 0;
+                
+                // Transacciones directas
+                state.transacciones.forEach(t => {
+                    var tDate = new Date(t.fecha);
+                    if (state.filterMonth !== 'ALL' && tDate.getMonth() === parseInt(state.filterMonth) && tDate.getFullYear() === parseInt(state.filterYear)) {
+                        t.tipo === 'INGRESO' ? mIng += t.monto : mGas += t.monto;
+                    }
+                    if (tDate.getFullYear() === parseInt(state.filterYear)) {
+                        t.tipo === 'INGRESO' ? aIng += t.monto : aGas += t.monto;
+                    }
+                    t.tipo === 'INGRESO' ? gIng += t.monto : gGas += t.monto;
+                });
+                
+                // Camadas (Gastos)
+                state.camadas.forEach(c => {
+                    var cDate = new Date(c.fecha);
+                    var costo = c.costo || 0;
+                    if (state.filterMonth !== 'ALL' && cDate.getMonth() === parseInt(state.filterMonth) && cDate.getFullYear() === parseInt(state.filterYear)) mGas += costo;
+                    if (cDate.getFullYear() === parseInt(state.filterYear)) aGas += costo;
+                    gGas += costo;
+                });
+                
+                // Cachorros (Ingresos por ventas) - CORREGIDO: Sin fallback a camada.fecha
+                state.cachorros.forEach(p => {
+                    if (p.estado === 'VENDIDO' || p.estado === 'RESERVADO') {
+                        var dateStr = p.fechaEstado; // Solo si tiene fecha de venta explícita
+                        if (dateStr) {
+                            var pDate = new Date(dateStr);
+                            var precio = p.precio || 0;
+                            if (state.filterMonth !== 'ALL' && pDate.getMonth() === parseInt(state.filterMonth) && pDate.getFullYear() === parseInt(state.filterYear)) mIng += precio;
+                            if (pDate.getFullYear() === parseInt(state.filterYear)) aIng += precio;
+                            gIng += precio;
+                        }
+                    }
+                });
+                
+                container.innerHTML = `
+                    ${timeSelectorsHtml}
+                    ${state.filterMonth !== 'ALL' ? `
+                    <div class="mb-6"><div class="balance-card-green p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden"><p class="text-emerald-100 font-bold text-[10px] uppercase tracking-widest mb-1">BENEFICIO ${monthNames[state.filterMonth].toUpperCase()}</p><h2 class="text-4xl font-black">${(mIng - mGas).toLocaleString()}€</h2><div class="flex gap-4 mt-6 pt-6 border-t border-white/10"><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-200 uppercase">Ingresos</p><p class="font-bold text-lg">+${mIng.toLocaleString()}€</p></div><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-100/60 uppercase">Gastos</p><p class="font-bold text-lg">-${mGas.toLocaleString()}€</p></div></div></div></div>
+                    ` : ''}
+                    <div class="mb-6"><div class="balance-card-green p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden"><p class="text-emerald-100 font-bold text-[10px] uppercase tracking-widest mb-1">BENEFICIO ANUAL ${state.filterYear}</p><h2 class="text-4xl font-black">${(aIng - aGas).toLocaleString()}€</h2><div class="flex gap-4 mt-6 pt-6 border-t border-white/10"><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-200 uppercase">Ingresos</p><p class="font-bold text-lg">+${aIng.toLocaleString()}€</p></div><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-100/60 uppercase">Gastos</p><p class="font-bold text-lg">-${aGas.toLocaleString()}€</p></div></div></div></div>
+                    <div class="mb-8"><div class="balance-card-green p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden"><p class="text-emerald-100 font-bold text-[10px] uppercase tracking-widest mb-1">BENEFICIO GLOBAL</p><h2 class="text-4xl font-black">${(gIng - gGas).toLocaleString()}€</h2><div class="flex gap-4 mt-6 pt-6 border-t border-white/10"><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-200 uppercase">Ingresos</p><p class="font-bold text-lg">+${gIng.toLocaleString()}€</p></div><div class="flex-1 text-center"><p class="text-[9px] font-bold text-emerald-100/60 uppercase">Gastos</p><p class="font-bold text-lg">-${gGas.toLocaleString()}€</p></div></div></div></div>
+                    
+                    <div class="card mb-8 p-6">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-emerald-600"></i>
+                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-400">Evolución Anual ${state.filterYear}</h3>
+                        </div>
+                        <div class="relative h-64 w-full"><canvas id="annualChart"></canvas></div>
+                    </div>
+                    <div class="card mb-8 p-6">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="dog" class="w-5 h-5 text-orange-500"></i>
+                            <h3 class="text-xs font-black uppercase tracking-widest text-slate-400">Cachorros: Registro vs Venta ${state.filterYear}</h3>
+                        </div>
+                        <div class="relative h-64 w-full"><canvas id="puppyChart"></canvas></div>
+                    </div>
+                    <button onclick="openExportMenu()" class="btn-export-main"><i data-lucide="file-text" class="w-5 h-5"></i> Exportar Reporte PDF</button>
+                `;
+                setTimeout(() => { initAnnualChart(); initPuppyChart(); }, 100);
+            }
+
+            else if (state.view === 'stock') {
+                var filteredPups = state.cachorros.filter(p => {
+                    if (state.stockFilter !== 'TODOS' && p.estado !== state.stockFilter) return false;
+                    if (state.stockTimeMode === 'GLOBAL') return true;
+                    
+                    var cam = state.camadas.find(c => c.id === p.camadaId);
+                    if (!cam) return false;
+
+                    // CORREGIDO: Si es "VENDIDO" o "RESERVADO" y hay un mes/año seleccionado, usamos la fecha de la venta para filtrar el Stock
+                    var dateToCheck;
+                    if ((p.estado === 'VENDIDO' || p.estado === 'RESERVADO') && p.fechaEstado) {
+                        dateToCheck = new Date(p.fechaEstado);
+                    } else {
+                        dateToCheck = new Date(cam.fecha);
+                    }
+
+                    if (state.stockTimeMode === 'MONTH') { 
+                        var yearMatch = dateToCheck.getFullYear() === parseInt(state.filterYear);
+                        var monthMatch = state.filterMonth === 'ALL' || dateToCheck.getMonth() === parseInt(state.filterMonth);
+                        return yearMatch && monthMatch;
+                    } 
+                    else if (state.stockTimeMode === 'YEAR') return dateToCheck.getFullYear() === parseInt(state.filterYear); 
+                    return true;
+                });
+
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Stock</h2><div class="text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 px-3 py-1 rounded-full">${filteredPups.length} Resultados</div></div>
+                    ${timeSelectorsHtml}
+                    <div class="space-y-3 mb-6"><div class="flex gap-2"><button onclick="updateFilter('stockTimeMode', 'GLOBAL')" class="filter-chip flex-1 ${state.stockTimeMode === 'GLOBAL' ? 'active' : ''}">Global</button><button onclick="updateFilter('stockTimeMode', 'MONTH')" class="filter-chip flex-1 ${state.stockTimeMode === 'MONTH' ? 'active' : ''}">${state.filterMonth === 'ALL' ? 'Año Sel.' : 'Mes Sel.'}</button><button onclick="updateFilter('stockTimeMode', 'YEAR')" class="filter-chip flex-1 ${state.stockTimeMode === 'YEAR' ? 'active' : ''}">Año Sel.</button></div></div>
+                    <div class="flex gap-2 overflow-x-auto pb-4 -mx-5 px-5 mb-4 no-scrollbar"><button onclick="updateFilter('stockFilter', 'TODOS')" class="filter-chip ${state.stockFilter === 'TODOS' ? 'active' : ''}">Todos</button><button onclick="updateFilter('stockFilter', 'DISPONIBLE')" class="filter-chip ${state.stockFilter === 'DISPONIBLE' ? 'active' : ''}">Disponibles</button><button onclick="updateFilter('stockFilter', 'VENDIDO')" class="filter-chip ${state.stockFilter === 'VENDIDO' ? 'active' : ''}">Vendidos</button><button onclick="updateFilter('stockFilter', 'RESERVADO')" class="filter-chip ${state.stockFilter === 'RESERVADO' ? 'active' : ''}">Reservados</button><button onclick="updateFilter('stockFilter', 'FALLECIDO')" class="filter-chip ${state.stockFilter === 'FALLECIDO' ? 'active' : ''}">Fallecidos</button></div>
+                    <div class="space-y-4">
+                        ${filteredPups.map(p => { var c = state.camadas.find(x => x.id === p.camadaId); return `<div class="card" onclick="editCachorro('${p.id}')"><div class="flex justify-between items-start"><div class="flex-grow"><div class="flex items-center gap-2"><h3 class="font-black text-lg uppercase leading-none text-slate-800">${p.nombre}</h3><span class="status-pill status-${p.estado.toLowerCase()}">${p.estado}</span></div><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Camada: ${c ? c.nombre : 'S/D'}</p>${p.fechaEstado ? `<p class="text-[8px] font-bold text-emerald-600 uppercase mt-0.5">Fecha Estado: ${p.fechaEstado}</p>` : ''}</div><button onclick="event.stopPropagation(); deleteCachorro('${p.id}')" class="text-red-300 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`; }).join('')}
+                    </div>
+                `;
+            }
+
+            else if (state.view === 'camadas') {
+                var filteredCamadas = state.camadas.filter(c => {
+                    var cDate = new Date(c.fecha);
+                    var yearMatch = cDate.getFullYear() === parseInt(state.filterYear);
+                    var monthMatch = state.filterMonth === 'ALL' || cDate.getMonth() === parseInt(state.filterMonth);
+                    return yearMatch && monthMatch;
+                });
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Registro de Camadas</h2><button onclick="addCamada()" class="bg-emerald-600 text-white p-3 rounded-xl shadow-lg"><i data-lucide="plus"></i></button></div>
+                    ${timeSelectorsHtml}
+                    <div class="space-y-4">
+                        ${filteredCamadas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(c => `
+                            <div class="card relative">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div onclick="navigate('camada-detalle', '${c.id}')" class="flex-grow cursor-pointer"><h3 class="font-black text-lg uppercase leading-none text-slate-900">${c.nombre}</h3><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Nacido: ${c.fecha}</p></div>
+                                    <div class="flex gap-1"><button onclick="editCamada('${c.id}')" class="text-slate-300 p-2"><i data-lucide="edit-3" class="w-4 h-4"></i></button><button onclick="deleteCamada('${c.id}')" class="text-red-300 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+                                </div>
+                                <div onclick="navigate('camada-detalle', '${c.id}')" class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50 cursor-pointer">
+                                    <div><p class="text-[9px] font-bold text-slate-400 uppercase">Cachorros</p><p class="font-black text-slate-700">${c.numCachorros}</p></div>
+                                    <div><p class="text-[9px] font-bold text-slate-400 uppercase">Inversión</p><p class="font-black text-emerald-600">${c.costo.toLocaleString()}€</p></div>
+                                </div>
+                                <button onclick="navigate('camada-detalle', '${c.id}')" class="w-full mt-4 bg-emerald-50 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-600">Entrar en Gestión</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            else if (state.view === 'ingresos' || state.view === 'gastos') {
+                var tipo = state.view === 'ingresos' ? 'INGRESO' : 'GASTO';
+                var color = tipo === 'INGRESO' ? 'emerald' : 'red';
+                var filteredTransactions = state.transacciones.filter(t => {
+                    var tDate = new Date(t.fecha);
+                    var yearMatch = tDate.getFullYear() === parseInt(state.filterYear);
+                    var monthMatch = state.filterMonth === 'ALL' || tDate.getMonth() === parseInt(state.filterMonth);
+                    return t.tipo === tipo && yearMatch && monthMatch;
+                });
+                var totalPeriodo = 0; filteredTransactions.forEach(t => totalPeriodo += (t.monto || 0));
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black uppercase">${state.view} EXTRAS</h2><button onclick="addFinanza('${tipo}')" class="bg-${color}-600 text-white p-3 rounded-xl shadow-lg"><i data-lucide="plus"></i></button></div>
+                    ${timeSelectorsHtml}
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 mb-6"><p class="text-[8px] font-black text-slate-400 uppercase mb-1">Total Periodo</p><p class="text-lg font-black text-${color}-600">${totalPeriodo.toLocaleString()}€</p></div>
+                    <div class="space-y-3">
+                        ${filteredTransactions.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(t => `<div class="card flex justify-between items-center py-4 relative"><div class="flex-grow"><span class="font-bold uppercase text-sm">${t.concepto}</span><p class="text-[9px] text-slate-400 font-bold uppercase">${t.categoria || ''} • ${t.fecha}</p></div><div class="flex items-center"><span class="font-black text-${color}-600 mr-4">${(t.monto || 0).toLocaleString()}€</span><div class="flex gap-1"><button onclick="editFinanza('${t.id}')" class="text-slate-300 p-1"><i data-lucide="edit-3" class="w-4 h-4"></i></button><button onclick="deleteFinanza('${t.id}')" class="text-red-100 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('')}
+                    </div>
+                `;
+            }
+            
+            else if (state.view === 'celos') {
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Registro Reproductivo</h2><button onclick="addHembra()" class="bg-emerald-600 text-white p-3 rounded-xl shadow-lg"><i data-lucide="plus"></i></button></div>
+                    <div class="space-y-6">${state.hembras.map(h => `<div class="card border-l-4 border-l-emerald-600"><div class="flex justify-between items-start mb-4"><div><h3 class="font-black text-lg uppercase text-slate-900 leading-none">${h.nombre}</h3><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">${h.raza || 'S/R'} • Nacimiento: ${h.fechaNacimiento || 'S/D'}</p></div><div class="flex gap-2"><button onclick="editHembra('${h.id}')" class="text-slate-300 p-2"><i data-lucide="edit-3" class="w-4 h-4"></i></button><button onclick="openCeloModal('${h.id}')" class="bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-1"><i data-lucide="calendar-plus" class="w-3 h-3"></i> Nuevo Celo</button></div></div><div class="space-y-3 mt-4 border-t border-slate-50 pt-4">${(h.celos || []).map((c, idx) => {
+                        var matingDates = c.fechasFecundacion || (c.fechaFecundacion ? [c.fechaFecundacion] : []);
+                        var predictedDate = "Pendiente";
+                        if (matingDates.length > 0) {
+                            var lastMating = new Date(matingDates[matingDates.length - 1]);
+                            if (!isNaN(lastMating.getTime())) {
+                                lastMating.setDate(lastMating.getDate() + 62);
+                                predictedDate = lastMating.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                            }
+                        }
+                        return `<div class="bg-slate-50 p-3 rounded-2xl border border-slate-100 relative"><div class="flex justify-between items-start mb-2"><span class="text-[11px] font-black uppercase text-slate-700">Celo: ${c.fechaCelo}</span><div class="flex gap-2"><button onclick="openCeloModal('${h.id}', ${idx})" class="text-slate-300 p-1"><i data-lucide="edit-3" class="w-3 h-3"></i></button><button onclick="deleteCelo('${h.id}', ${idx})" class="text-red-200 p-1"><i data-lucide="trash-2" class="w-3 h-3"></i></button></div></div><div class="grid grid-cols-2 gap-y-3 mt-2"><div><p class="text-[8px] font-bold text-slate-400 uppercase">Fecundada</p><p class="text-[10px] font-black ${c.fecundada === 'SI' ? 'text-emerald-600' : 'text-slate-300'}">${c.fecundada === 'SI' ? (matingDates.length > 0 ? matingDates.join(', ') : 'SÍ') : 'NO'}</p></div><div><p class="text-[8px] font-bold text-slate-400 uppercase">Parto Real</p><p class="text-[10px] font-black ${c.fechaParto ? 'text-blue-600' : 'text-slate-300'}">${c.fechaParto || 'Pendiente'}</p></div><div><p class="text-[8px] font-bold text-slate-400 uppercase">Parto Previsto</p><p class="text-[10px] font-black text-orange-600">${predictedDate}</p></div><div><p class="text-[8px] font-bold text-slate-400 uppercase">Cachorros</p><p class="text-[10px] font-black text-slate-800">${c.numCachorros || 0}</p></div></div></div>`;
+                    }).reverse().join('')}</div><div class="mt-4 flex justify-end"><button onclick="deleteHembra('${h.id}')" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm flex items-center gap-1"><i data-lucide="trash-2" class="w-3 h-3"></i> Borrar Perra</button></div></div>`).join('')}</div>
+                `;
+            }
+
+            else if (state.view === 'salud') {
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Salud y Seguimiento</h2><button onclick="addPerroSalud()" class="bg-emerald-600 text-white p-3 rounded-xl shadow-lg"><i data-lucide="plus"></i></button></div>
+                    <div class="space-y-4">
+                        ${state.perrosSalud.map(p => `<div class="card relative" onclick="navigate('salud-detalle', '${p.id}')"><div class="flex justify-between items-start"><div class="flex-grow"><h3 class="font-black text-lg uppercase leading-none text-slate-900">${p.nombre}</h3><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">${p.raza} • Nace: ${p.fechaNacimiento}</p></div><div class="flex gap-2"><button onclick="event.stopPropagation(); editPerroSalud('${p.id}')" class="text-slate-300 p-2"><i data-lucide="edit-3" class="w-4 h-4"></i></button><button onclick="event.stopPropagation(); deletePerroSalud('${p.id}')" class="text-red-200 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div></div>`).join('')}
+                    </div>
+                `;
+            }
+
+            else if (state.view === 'salud-detalle') {
+                var p = state.perrosSalud.find(x => x.id === state.currentPerroId);
+                if (!p) return navigate('salud');
+                container.innerHTML = `
+                    <div class="flex items-center gap-4 mb-6"><button onclick="navigate('salud')" class="bg-white p-3 rounded-xl border border-slate-100 text-slate-400"><i data-lucide="chevron-left"></i></button><div><h2 class="text-xl font-black uppercase leading-none">${p.nombre}</h2><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Historial Clínico</p></div></div>
+                    <div class="mb-8"><div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><i data-lucide="syringe" class="w-4 h-4"></i> Vacunaciones</h3><button onclick="addSaludRecord('vacuna')" class="bg-emerald-600 text-white p-2 rounded-lg"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div class="space-y-3">${(p.vacunas || []).map((v, idx) => `<div class="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center"><div><p class="text-[11px] font-black uppercase text-slate-800">${v.nombre}</p><p class="text-[9px] font-bold text-slate-400 uppercase">${v.fecha}</p></div><button onclick="deleteSaludRecord('vacunas', ${idx})" class="text-red-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).reverse().join('')}</div></div>
+                    <div class="mb-8"><div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><i data-lucide="bug" class="w-4 h-4"></i> Desparasitaciones</h3><button onclick="addSaludRecord('desp')" class="bg-blue-600 text-white p-2 rounded-lg"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div class="space-y-3">${(p.desparasitaciones || []).map((d, idx) => `<div class="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center"><div><p class="text-[11px] font-black uppercase text-slate-800">${d.producto || d.nombre}</p><p class="text-[9px] font-bold text-slate-400 uppercase">${d.fecha}</p></div><button onclick="deleteSaludRecord('desparasitaciones', ${idx})" class="text-red-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).reverse().join('')}</div></div>
+                    <div><div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><i data-lucide="pills" class="w-4 h-4"></i> Otros Tratamientos</h3><button onclick="addSaludRecord('tratamiento')" class="bg-orange-600 text-white p-2 rounded-lg"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div class="space-y-3">${(p.tratamientos || []).map((t, idx) => `<div class="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center"><div><p class="text-[11px] font-black uppercase text-slate-800">${t.nombre}</p><p class="text-[9px] font-bold text-slate-400 uppercase">${t.fecha}</p></div><button onclick="deleteSaludRecord('tratamientos', ${idx})" class="text-red-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).reverse().join('')}</div></div>
+                `;
+            }
+
+            else if (state.view === 'camada-detalle') {
+                var c = state.camadas.find(x => x.id === state.currentCamadaId);
+                if (!c) return navigate('camadas');
+                var pups = state.cachorros.filter(x => x.camadaId === state.currentCamadaId);
+                container.innerHTML = `
+                    <div class="flex items-center gap-4 mb-6"><button onclick="navigate('camadas')" class="bg-white p-3 rounded-xl border border-slate-100 text-slate-400"><i data-lucide="chevron-left"></i></button><div><h2 class="text-xl font-black uppercase leading-none">${c.nombre}</h2><p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Gestión de la Camada</p></div></div>
+                    <div class="grid grid-cols-1 gap-4">${pups.map(p => `<div class="card" onclick="editCachorro('${p.id}')"><div class="flex justify-between items-start"><div class="flex-grow"><div class="flex items-center gap-2 mb-1"><h3 class="font-black text-lg uppercase leading-none text-slate-800">${p.nombre}</h3><span class="status-pill status-${p.estado.toLowerCase()}">${p.estado}</span></div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${p.sexo} • <span class="text-emerald-600">${(p.precio || 0).toLocaleString()}€</span></p></div><button onclick="event.stopPropagation(); deleteCachorro('${p.id}')" class="text-red-200 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join('')}</div>
+                `;
+            }
+
+            lucide.createIcons();
+        }
+
+        // --- FUNCIONES GRÁFICAS CORREGIDAS (Sin fallback a fecha de nacimiento) ---
+        function initAnnualChart() {
+            var canvas = document.getElementById('annualChart');
+            if (!canvas) return;
+            var monthlyIncome = Array(12).fill(0); var monthlyExpenses = Array(12).fill(0); var monthlyProfit = Array(12).fill(0);
+            state.transacciones.forEach(t => {
+                var d = new Date(t.fecha); if (d.getFullYear() === parseInt(state.filterYear)) {
+                    if (t.tipo === 'INGRESO') monthlyIncome[d.getMonth()] += t.monto; else monthlyExpenses[d.getMonth()] += t.monto;
+                }
+            });
+            state.camadas.forEach(c => {
+                var d = new Date(c.fecha); if (d.getFullYear() === parseInt(state.filterYear)) monthlyExpenses[d.getMonth()] += (c.costo || 0);
+            });
+            state.cachorros.forEach(p => {
+                if ((p.estado === 'VENDIDO' || p.estado === 'RESERVADO') && p.fechaEstado) {
+                    var d = new Date(p.fechaEstado); if (d.getFullYear() === parseInt(state.filterYear)) monthlyIncome[d.getMonth()] += (p.precio || 0);
+                }
+            });
+            for(var i=0; i<12; i++) monthlyProfit[i] = monthlyIncome[i] - monthlyExpenses[i];
+            if (annualChart) annualChart.destroy();
+            annualChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: monthNames.map(m => m.substring(0,3)),
+                    datasets: [
+                        { label: 'Beneficio', data: monthlyProfit, type: 'line', borderColor: '#3b82f6', borderWidth: 3, fill: false, tension: 0.4, pointBackgroundColor: '#3b82f6', order: 0 },
+                        { label: 'Ingresos', data: monthlyIncome, backgroundColor: 'rgba(5, 150, 105, 0.7)', borderRadius: 6, order: 1 },
+                        { label: 'Gastos', data: monthlyExpenses, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 6, order: 2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, usePointStyle: true } } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: 'bold' }, callback: val => val.toLocaleString() + '€' } }, x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } } } }
+            });
+        }
+
+        function initPuppyChart() {
+            var canvas = document.getElementById('puppyChart');
+            if (!canvas) return;
+            var pupsRegistered = Array(12).fill(0); var pupsSold = Array(12).fill(0);
+            state.cachorros.forEach(p => {
+                var cam = state.camadas.find(c => c.id === p.camadaId);
+                if (cam) { var dReg = new Date(cam.fecha); if (dReg.getFullYear() === parseInt(state.filterYear)) pupsRegistered[dReg.getMonth()]++; }
+                // Solo cuenta como vendido si tiene FECHA DE VENTA explícita en ese año/mes
+                if ((p.estado === 'VENDIDO' || p.estado === 'RESERVADO') && p.fechaEstado) {
+                    var dSold = new Date(p.fechaEstado); if (dSold.getFullYear() === parseInt(state.filterYear)) pupsSold[dSold.getMonth()]++;
+                }
+            });
+            if (puppyChart) puppyChart.destroy();
+            puppyChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: monthNames.map(m => m.substring(0,3)),
+                    datasets: [
+                        { label: 'Registrados (Nacen)', data: pupsRegistered, backgroundColor: 'rgba(99, 102, 241, 0.7)', borderRadius: 6 },
+                        { label: 'Vendidos (En el mes)', data: pupsSold, backgroundColor: 'rgba(249, 115, 22, 0.7)', borderRadius: 6 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, usePointStyle: true } } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1, font: { size: 10, weight: 'bold' } } }, x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } } } }
+            });
+        }
+
+        // --- FUNCIONES CAMADAS ---
+        function addCamada() { 
+            var html = `<div class="space-y-4"><div><span class="form-label">Nombre camada</span><input type="text" id="c-nombre" class="w-full bg-slate-50 p-4 rounded-xl border-none outline-none font-bold"></div><div><span class="form-label">Fecha</span><input type="date" id="c-fecha" class="w-full bg-slate-50 p-4 rounded-xl" value="${new Date().toISOString().split('T')[0]}"></div><div><span class="form-label">Inversión Inicial (€)</span><input type="number" id="c-coste" class="w-full bg-slate-50 p-4 rounded-xl"></div><div><span class="form-label">Número Cachorros</span><input type="number" id="c-num" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="saveCamada()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase">Crear Camada</button></div>`; 
+            openModal("Nueva Camada", html); 
+        }
+        async function saveCamada(id = null) {
+            var n = document.getElementById('c-nombre').value.toUpperCase(); var f = document.getElementById('c-fecha').value; var c = parseFloat(document.getElementById('c-coste').value) || 0; var num = parseInt(document.getElementById('c-num').value) || 0;
+            var data = { nombre: n, fecha: f, costo: c, numCachorros: num }; var baseRef = db.collection('artifacts').doc(appId).collection('public').doc('data');
+            if(id) { 
+                await baseRef.collection('camadas').doc(id).update(data);
+                var currentPups = state.cachorros.filter(p => p.camadaId === id); var diff = num - currentPups.length;
+                if (diff > 0) { for(let i = 1; i <= diff; i++) { await baseRef.collection('cachorros').add({ camadaId: id, nombre: "CACHORRO " + (currentPups.length + i), sexo: "MACHO", estado: "DISPONIBLE", precio: 0, vacunas: 0 }); } }
+                else if (diff < 0) { var toDelete = currentPups.slice(num); const batch = db.batch(); toDelete.forEach(p => { batch.delete(baseRef.collection('cachorros').doc(p.id)); }); await batch.commit(); }
+                closeModal();
+            } else { 
+                baseRef.collection('camadas').add({...data, createdAt: new Date().toISOString()}).then((doc) => { for(let i=1; i<=num; i++) { baseRef.collection('cachorros').add({ camadaId: doc.id, nombre: "CACHORRO " + i, sexo: "MACHO", estado: "DISPONIBLE", precio: 0, vacunas: 0 }); } closeModal(); }); 
+            }
+        }
+        function editCamada(id) {
+            var c = state.camadas.find(x => x.id === id);
+            var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="c-nombre" value="${c.nombre}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Fecha</span><input type="date" id="c-fecha" value="${c.fecha}" class="w-full bg-slate-50 p-4 rounded-xl"></div><div><span class="form-label">Inversión (€)</span><input type="number" id="c-coste" value="${c.costo}" class="w-full bg-slate-50 p-4 rounded-xl"></div><div><span class="form-label">Número de Cachorros</span><input type="number" id="c-num" value="${c.numCachorros}" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="saveCamada('${id}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Actualizar Todo</button></div>`;
+            openModal("Editar Camada", html);
+        }
+        function deleteCamada(id) { if(confirm("¿Seguro?")) { const batch = db.batch(); state.cachorros.filter(p => p.camadaId === id).forEach(p => { batch.delete(db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cachorros').doc(p.id)); }); batch.delete(db.collection('artifacts').doc(appId).collection('public').doc('data').collection('camadas').doc(id)); batch.commit().then(() => { if(state.view === 'camada-detalle') navigate('camadas'); }); } }
+
+        // --- SALUD, STOCK, CACHORROS ---
+        function addPerroSalud() { var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="s-nombre" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Raza</span><input type="text" id="s-raza" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Nacimiento</span><input type="date" id="s-dob" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><button onclick="savePerroSalud()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase">Registrar</button></div>`; openModal("Historial Salud", html); }
+        function savePerroSalud(id = null) {
+            var n = document.getElementById('s-nombre').value.toUpperCase(); var r = document.getElementById('s-raza').value.toUpperCase(); var d = document.getElementById('s-dob').value; var data = { nombre: n, raza: r, fechaNacimiento: d }; var ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('salud');
+            if(id) { ref.doc(id).update(data).then(() => closeModal()); } else { ref.add({...data, vacunas: [], desparasitaciones: [], tratamientos: []}).then(() => closeModal()); }
+        }
+        function editPerroSalud(id) { var p = state.perrosSalud.find(x => x.id === id); var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="s-nombre" value="${p.nombre}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Raza</span><input type="text" id="s-raza" value="${p.raza}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Nacimiento</span><input type="date" id="s-dob" value="${p.fechaNacimiento}" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="savePerroSalud('${id}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Actualizar</button></div>`; openModal("Editar Perro", html); }
+        function deletePerroSalud(id) { if(confirm("¿Borrar?")) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('salud').doc(id).delete(); }
+        function addSaludRecord(tipo) { var title = tipo === 'vacuna' ? "Nueva Vacuna" : (tipo === 'desp' ? "Desparasitación" : "Tratamiento"); var html = `<div class="space-y-4"><div><span class="form-label">Concepto</span><input type="text" id="r-nombre" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Fecha</span><input type="date" id="r-fecha" class="w-full bg-slate-50 p-4 rounded-xl font-bold" value="${new Date().toISOString().split('T')[0]}"></div><button onclick="saveSaludRecord('${tipo}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Guardar</button></div>`; openModal(title, html); }
+        function saveSaludRecord(tipo) { var p = state.perrosSalud.find(x => x.id === state.currentPerroId); var f = document.getElementById('r-fecha').value; var n = document.getElementById('r-nombre').value.toUpperCase(); var col = tipo === 'vacuna' ? 'vacunas' : (tipo === 'desp' ? 'desparasitaciones' : 'tratamientos'); var list = p[col] || []; list.push({ nombre: n, producto: n, fecha: f }); db.collection('artifacts').doc(appId).collection('public').doc('data').collection('salud').doc(p.id).update({ [col]: list }).then(() => closeModal()); }
+        function deleteSaludRecord(col, idx) { if(confirm("¿Eliminar?")) { var p = state.perrosSalud.find(x => x.id === state.currentPerroId); var list = p[col] || []; list.splice(idx, 1); db.collection('artifacts').doc(appId).collection('public').doc('data').collection('salud').doc(p.id).update({ [col]: list }); } }
+        
+        function togglePuppyDateFields() { var est = document.getElementById('p-estado').value; var container = document.getElementById('p-fecha-container'); if (est === 'VENDIDO' || est === 'RESERVADO') container.classList.remove('hidden'); else container.classList.add('hidden'); }
+        function editCachorro(id) {
+            var p = state.cachorros.find(x => x.id === id);
+            var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="p-nombre" value="${p.nombre}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Estado</span><select id="p-estado" onchange="togglePuppyDateFields()" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="DISPONIBLE" ${p.estado==='DISPONIBLE'?'selected':''}>DISPONIBLE</option><option value="VENDIDO" ${p.estado==='VENDIDO'?'selected':''}>VENDIDO</option><option value="RESERVADO" ${p.estado==='RESERVADO'?'selected':''}>RESERVADO</option><option value="FALLECIDO" ${p.estado==='FALLECIDO'?'selected':''}>FALLECIDO</option></select></div><div id="p-fecha-container" class="${(p.estado==='VENDIDO'||p.estado==='RESERVADO')?'':'hidden'}"><span class="form-label">Fecha de Venta/Reserva</span><input type="date" id="p-fecha-estado" value="${p.fechaEstado || new Date().toISOString().split('T')[0]}" class="w-full bg-slate-50 p-4 rounded-xl"></div><div><span class="form-label">Sexo</span><select id="p-sexo" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="MACHO" ${p.sexo==='MACHO'?'selected':''}>MACHO</option><option value="HEMBRA" ${p.sexo==='HEMBRA'?'selected':''}>HEMBRA</option></select></div><div><span class="form-label">Precio (€)</span><input type="number" id="p-precio" value="${p.precio}" class="w-full bg-slate-50 p-4 rounded-xl"></div><div><span class="form-label">Vacunas</span><input type="number" id="p-vacunas" value="${p.vacunas||0}" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="saveCachorroData('${id}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Guardar Cambios</button></div>`;
+            openModal("Gestionar Cachorro", html);
+        }
+        function saveCachorroData(id) { var est = document.getElementById('p-estado').value; var data = { nombre: document.getElementById('p-nombre').value.toUpperCase(), sexo: document.getElementById('p-sexo').value, estado: est, precio: parseFloat(document.getElementById('p-precio').value) || 0, vacunas: parseInt(document.getElementById('p-vacunas').value) || 0, fechaEstado: (est === 'VENDIDO' || est === 'RESERVADO') ? document.getElementById('p-fecha-estado').value : null }; db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cachorros').doc(id).update(data).then(() => closeModal()); }
+        function deleteCachorro(id) { if(confirm("¿Eliminar?")) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cachorros').doc(id).delete().then(() => closeModal()); }
+
+        // --- HEMBRAS Y FINANZAS ---
+        function addHembra() { var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="h-nombre" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Raza</span><input type="text" id="h-raza" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Nacimiento</span><input type="date" id="h-dob" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="saveHembra()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase">Registrar</button></div>`; openModal("Nueva Perra", html); }
+        function saveHembra(id = null) { var n = document.getElementById('h-nombre').value.toUpperCase(); var r = document.getElementById('h-raza').value.toUpperCase(); var d = document.getElementById('h-dob').value; var data = { nombre: n, raza: r, fechaNacimiento: d }; var ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('hembras'); if(id) { ref.doc(id).update(data).then(() => closeModal()); } else { ref.add({...data, celos: []}).then(() => closeModal()); } }
+        function editHembra(id) { var h = state.hembras.find(x => x.id === id); var html = `<div class="space-y-4"><div><span class="form-label">Nombre</span><input type="text" id="h-nombre" value="${h.nombre}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Raza</span><input type="text" id="h-raza" value="${h.raza||''}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Nacimiento</span><input type="date" id="h-dob" value="${h.fechaNacimiento||''}" class="w-full bg-slate-50 p-4 rounded-xl"></div><button onclick="saveHembra('${id}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Actualizar</button></div>`; openModal("Editar Hembra", html); }
+        function deleteHembra(id) { if(confirm("¿Borrar?")) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('hembras').doc(id).delete(); }
+
+        function openCeloModal(hId, idx = null) { 
+            var h = state.hembras.find(x => x.id === hId); 
+            var c = idx !== null ? h.celos[idx] : { fechaCelo: '', fecundada: 'NO', fechasFecundacion: [], embarazada: 'NO', fechaParto: '', numCachorros: 0 }; 
+            var dates = c.fechasFecundacion || (c.fechaFecundacion ? [c.fechaFecundacion] : []);
+            if (dates.length === 0) dates = [''];
+            var html = `<div class="space-y-4"><div><span class="form-label">Fecha Inicio Celo</span><input type="date" id="ce-fecha" class="w-full bg-slate-50 p-4 rounded-xl" value="${c.fechaCelo}"></div><div><span class="form-label">¿Fecundada?</span><select id="ce-fecundada" onchange="toggleCeloFields()" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="NO" ${c.fecundada==='NO'?'selected':''}>NO</option><option value="SI" ${c.fecundada==='SI'?'selected':''}>SI</option></select></div><div id="fecundada-list-container" class="${c.fecundada==='SI'?'':'hidden'} space-y-3"><span class="form-label">Fechas de Fecundación</span><div id="mating-dates-list" class="space-y-2">${dates.map((d, i) => `<div class="flex gap-2 mating-date-row"><input type="date" class="ce-fec-input w-full bg-slate-50 p-4 rounded-xl" value="${d}">${i > 0 ? `<button onclick="this.parentElement.remove()" class="text-red-400 p-2"><i data-lucide="minus-circle"></i></button>` : ''}</div>`).join('')}</div><button onclick="addMatingDateField()" class="w-full bg-emerald-50 text-emerald-600 py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> Añadir otra fecha</button></div><div><span class="form-label">¿Embarazo?</span><select id="ce-embarazada" onchange="toggleCeloFields()" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="NO" ${c.embarazada==='NO'?'selected':''}>NO</option><option value="SI" ${c.embarazada==='SI'?'selected':''}>SI</option></select></div><div id="extra-celo-fields" class="${c.embarazada==='SI'?'':'hidden'} space-y-4"><div><span class="form-label">Fecha Parto Real</span><input type="date" id="ce-parto" class="w-full bg-slate-50 p-4 rounded-xl" value="${c.fechaParto}"></div><div><span class="form-label">Nº Cachorros</span><input type="number" id="ce-num" class="w-full bg-slate-50 p-4 rounded-xl" value="${c.numCachorros}"></div></div><button onclick="saveCelo('${hId}', ${idx})" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase">Guardar Registro</button></div>`; 
+            openModal("Celo", html); 
+        }
+        function addMatingDateField() { var container = document.getElementById('mating-dates-list'); var div = document.createElement('div'); div.className = 'flex gap-2 mating-date-row'; div.innerHTML = `<input type="date" class="ce-fec-input w-full bg-slate-50 p-4 rounded-xl" value=""><button onclick="this.parentElement.remove()" class="text-red-400 p-2"><i data-lucide="minus-circle"></i></button>`; container.appendChild(div); lucide.createIcons(); }
+        function toggleCeloFields() { var f = document.getElementById('ce-fecundada').value; var e = document.getElementById('ce-embarazada').value; document.getElementById('fecundada-list-container').className = f === 'SI' ? 'space-y-3' : 'hidden'; document.getElementById('extra-celo-fields').className = e === 'SI' ? 'space-y-4' : 'hidden'; }
+        function saveCelo(hId, idx) { var h = state.hembras.find(x => x.id === hId); var dateInputs = document.querySelectorAll('.ce-fec-input'); var fechas = Array.from(dateInputs).map(i => i.value).filter(v => v !== ''); var nuevo = { fechaCelo: document.getElementById('ce-fecha').value, fecundada: document.getElementById('ce-fecundada').value, fechasFecundacion: fechas, fechaFecundacion: fechas.length > 0 ? fechas[0] : '', embarazada: document.getElementById('ce-embarazada').value, fechaParto: document.getElementById('ce-parto').value, numCachorros: parseInt(document.getElementById('ce-num').value) || 0 }; var list = h.celos || []; if(idx !== null) list[idx] = nuevo; else list.push(nuevo); db.collection('artifacts').doc(appId).collection('public').doc('data').collection('hembras').doc(hId).update({ celos: list }).then(() => closeModal()); }
+        function deleteCelo(hId, idx) { var h = state.hembras.find(x => x.id === hId); var list = h.celos || []; list.splice(idx, 1); db.collection('artifacts').doc(appId).collection('public').doc('data').collection('hembras').doc(hId).update({ celos: list }); }
+
+        function addFinanza(tipo) { 
+            var html = `<div class="space-y-4"><div><span class="form-label">Concepto</span><input type="text" id="f-concepto" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Importe (€)</span><input type="number" id="f-monto" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div>${tipo === 'GASTO' ? `<div><span class="form-label">Categoría</span><select id="f-categoria" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="PIENSO CACHORROS">PIENSO CACHORROS</option><option value="PIENSO ADULTOS">PIENSO ADULTOS</option><option value="VACUNAS">VACUNAS</option><option value="MEDICAMENTOS">MEDICAMENTOS</option><option value="OTROS">OTROS</option></select></div>` : ''}<div><span class="form-label">Fecha</span><input type="date" id="f-fecha" class="w-full bg-slate-50 p-4 rounded-xl" value="${new Date().toISOString().split('T')[0]}"></div><button onclick="saveFinanza('${tipo}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Guardar</button></div>`; 
+            openModal("Nuevo " + tipo, html); 
+        }
+        function editFinanza(id) { 
+            var t = state.transacciones.find(x => x.id === id); 
+            var tipo = t.tipo; 
+            var html = `<div class="space-y-4"><div><span class="form-label">Concepto</span><input type="text" id="f-concepto" value="${t.concepto}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div><div><span class="form-label">Importe</span><input type="number" id="f-monto" value="${t.monto}" class="w-full bg-slate-50 p-4 rounded-xl font-bold"></div>${tipo === 'GASTO' ? `<div><span class="form-label">Categoría</span><select id="f-categoria" class="w-full bg-slate-50 p-4 rounded-xl font-bold"><option value="PIENSO CACHORROS" ${t.categoria==='PIENSO CACHORROS'?'selected':''}>PIENSO CACHORROS</option><option value="PIENSO ADULTOS" ${t.categoria==='PIENSO ADULTOS'?'selected':''}>PIENSO ADULTOS</option><option value="VACUNAS" ${t.categoria==='VACUNAS'?'selected':''}>VACUNAS</option><option value="MEDICAMENTOS" ${t.categoria==='MEDICAMENTOS'?'selected':''}>MEDICAMENTOS</option><option value="OTROS" ${t.categoria==='OTROS'?'selected':''}>OTROS</option></select></div>` : ''}<div><span class="form-label">Fecha</span><input type="date" id="f-fecha" class="w-full bg-slate-50 p-4 rounded-xl" value="${t.fecha}"></div><button onclick="saveFinanza('${tipo}', '${id}')" class="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase">Actualizar</button></div>`; 
+            openModal("Editar", html); 
+        }
+        function saveFinanza(tipo, id = null) { var cat = tipo === 'GASTO' ? document.getElementById('f-categoria').value : 'EXTRA'; var data = { concepto: document.getElementById('f-concepto').value.toUpperCase(), monto: parseFloat(document.getElementById('f-monto').value) || 0, tipo: tipo, categoria: cat, fecha: document.getElementById('f-fecha').value }; var ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('transacciones'); if(id) ref.doc(id).update(data).then(() => closeModal()); else ref.add(data).then(() => closeModal()); }
+        function deleteFinanza(id) { if(confirm("¿Eliminar?")) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('transacciones').doc(id).delete(); }
+
+        // --- PDF ---
+        function openExportMenu() { var html = `<div class="space-y-4"><p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Informes disponibles</p><button onclick="generatePDF('MONTH')" class="w-full bg-slate-50 p-4 rounded-xl text-left flex justify-between font-bold"><span>Mensual (${state.filterMonth==='ALL'?'Año Sel.':monthNames[state.filterMonth]})</span><i data-lucide="calendar"></i></button><button onclick="generatePDF('YEAR')" class="w-full bg-slate-50 p-4 rounded-xl text-left flex justify-between font-bold"><span>Anual (${state.filterYear})</span><i data-lucide="calendar-days"></i></button><button onclick="generatePDF('GLOBAL')" class="w-full bg-slate-900 text-white p-4 rounded-xl text-left flex justify-between font-black"><span>Global Histórico</span><i data-lucide="globe"></i></button></div>`; openModal("Informe PDF", html); }
+        async function generatePDF(mode) {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF(); const pageWidth = doc.internal.pageSize.getWidth(); let y = 20;
+            doc.setFontSize(22); doc.setFont("helvetica", "bold"); doc.text("CACHORROS YABAT - REPORTE", pageWidth/2, y, { align: 'center' }); y += 15;
+            doc.autoTable({ startY: y, head: [['Periodo', 'Reporte']], body: [[mode, state.filterYear]], headStyles: { fillColor: [5, 150, 105] } });
+            doc.save(`Reporte_Yabat_${mode}.pdf`); closeModal();
+        }
+
+        window.addEventListener('load', function() {
+            auth.signInAnonymously().then(function() {
+                auth.onAuthStateChanged(function(user) {
+                    if (user) {
+                        var base = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                        base.collection('hembras').onSnapshot(s => { state.hembras = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+                        base.collection('transacciones').onSnapshot(s => { state.transacciones = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+                        base.collection('camadas').onSnapshot(s => { state.camadas = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+                        base.collection('cachorros').onSnapshot(s => { state.cachorros = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+                        base.collection('salud').onSnapshot(s => { state.perrosSalud = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+                        document.getElementById('loader').classList.add('hidden');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
